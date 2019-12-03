@@ -1,5 +1,9 @@
 #!/bin/bash
 
+#This script does work. 
+#To use, call do_test with the options like you would to 'zpool create <options>'
+
+
 function set_poolName(){
 	skipNext=false
 	for p in $@
@@ -92,7 +96,7 @@ function test_eight450(){
 }
 
 
-
+#This is an example of some common permutations for a six drive setup, comparing the ashift property being set vs not
 function test_six8tb(){
     do_test six8tb mirror /dev/sd{f,g} mirror /dev/sd{h,i} mirror /dev/sd{t,u}
     do_test six8tb raidz1 /dev/sdf /dev/sdg /dev/sdh raidz1 /dev/sdi /dev/sdt /dev/sdu
@@ -108,6 +112,12 @@ function test_six8tb(){
 
 }
 
-test_eight450
-test_six8tb
+#These are examples of some tests for a 6 eight drive setup
+#test_eight450
+
+#These are examples of some tests for an 8 drive setup
+#test_six8tb
+
+#by default just call do_test with the parameters given to this script
+do_test $@
 
