@@ -48,6 +48,9 @@ fn main() {
     println!("Warning this program is really distructive!");
     
     zpool_status(&options);
+    let create_permutations = &options.get_create_permutations();
+    println!("Create Permutations are: {:#?}", create_permutations);
+    println!("done");
 
 }
 #[derive(Debug)]
@@ -120,10 +123,16 @@ impl Default for ZPoolOptions {
     }
 }
 
-
+#[derive(Debug,Clone)]
 struct CreatePermutation{
     pub permutations : Vec<Vec<String>>,
 }
+
+//#impl Display for CreatePermutation{
+//#    fn Display(self : &CreatePermutation){/#
+//
+//    }
+//}
 
 impl CreatePermutation {
     fn raidz(&mut self, options : &ZPoolOptions){
@@ -158,6 +167,7 @@ impl CreatePermutation {
             if devices_processed % 2 == 0 {
                 if devices_processed + 1 > drive_count {
                     //for when we have an odd number of drives, the last one can be a spare
+                    //TODO Needs Testing/Investigation
                     inner.push("spare".to_string());
                 } else {
                     inner.push("mirror".to_string())
