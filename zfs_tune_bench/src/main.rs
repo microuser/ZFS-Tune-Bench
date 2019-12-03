@@ -121,66 +121,88 @@ impl Default for ZPoolOptions {
 }
 
 
-fn push_raidz(mut outer : Vec<Vec<String>>, options : &ZPoolOptions){
-    if options.devices.len() > 1 {
-        let raid1 = options.devices.clone();
-        raid1.insert(0,"raidz1".to_string());
-        outer.push(raid1);
-    }
-    if options.devices.len() > 2 {
-        let raid2 = options.devices.clone();
-        raid2.insert(0,"raid2".to_string());
-        outer.push(raid2);
-    }
-    if options.devices.len() > 3 {
-        let raid2 = options.devices.clone();
-        raid2.insert(0,"raid3".to_string());
-        outer.push(raid2);
-    }
+struct CreatePermutation{
+    pub permutations : Vec<Vec<String>>,
 }
 
-fn push_stripe(outer : Vec<Vec<String>>, options : &ZPoolOptions){
-    let drive_count = options.devices.len();
-    if drive_count == 2 {
-        let striped2 = options.devices.clone();
-        outer.push(striped2);
-        return ()
-    } 
-
-    let stripedspare = options.devices.clone();
-    if drive_count % 2 == 1 {
-        //consider len=3, becomes /dev/sda /dev/sdb spare /dev/sdc
-        //consider len=5, becomes /dev/sda /dev/sdb /dev/sdc /dev/sdd spare /dev/sde
-        stripedspare.insert(drive_count -1, "spare".to_string());
-        outer.push(stripedspare);
-    } else {
-        outer.push(stripedspare);
+impl CreatePermutation {
+    fn raidz(&mut self, options : &ZPoolOptions){
+        //Question: Using powered of copy the pattern of insert, i found that &mut is what I want. Kinda makes since. can explain?
+        if options.devices.len() > 1 {
+            let mut raid1 = options.devices.clone();
+            raid1.insert(0,"raidz1".to_string());
+            self.permutations.push(raid1);
+        }
+        if options.devices.len() > 2 {
+            let mut raid2 = options.devices.clone();
+            raid2.insert(0,"raid2".to_string());
+            self.permutations.push(raid2);
+        }
+        if options.devices.len() > 3 {
+            let mut raid2 = options.devices.clone();
+            raid2.insert(0,"raid3".to_string());
+            self.permutations.push(raid2);
+        }
+        ()
     }
-    return ()
+
+    fn mirror(&mut self, options : &ZPoolOptions){
+        //TODO: Consider allowing mirrors of 3 drives or more? kinda not needed
+        let drive_count = options.devices.len();
+        let mut devices_processed = 0;
+        if drive_count < 3 {
+            return ()
+        }
+        let mut inner : Vec<String> = vec![];
+        for device in options.devices.clone(){
+            if devices_processed % 2 == 0 {
+                if devices_processed + 1 > drive_count {
+                    //for when we have an odd number of drives, the last one can be a spare
+                    inner.push("spare".to_string());
+                } else {
+                    inner.push("mirror".to_string())
+                }
+            }
+            inner.push(device);
+            devices_processed += 1;
+        }
+        self.permutations.push(inner);
+        ()
+
+    }
+
+    fn stripe(&mut self, options : &ZPoolOptions){
+        let drive_count = options.devices.len();
+        if drive_count == 2 {
+            let striped2 = options.devices.clone();
+            self.permutations.push(striped2);
+            return ()
+        } 
     
+        let mut stripedspare = options.devices.clone();
+        if drive_count % 2 == 1 {
+            //consider len=3, becomes /dev/sda /dev/sdb spare /dev/sdc
+            //consider len=5, becomes /dev/sda /dev/sdb /dev/sdc /dev/sdd spare /dev/sde
+            stripedspare.insert(drive_count -1, "spare".to_string());
+            self.permutations.push(stripedspare);
+        } else {
+            self.permutations.push(stripedspare);
+        }
+        ()
+    }
 }
+
 
 impl ZPoolOptions {
 
-    fn get_raid_configurations(&self) -> Vec<Vec<String>> {
-        let mut outer : Vec<Vec<String>> ;
-
-        push_raidz(outer, &self);
-        push_raidz(outer, &self);
-
-        push_raidz(outer, &self);
-        
-        if self.devices.len() == 8 {
-            
-            outer.push(self.devices.clone().insert(0,"raidz2"));
-            outer.push(self.devices.clone().insert(0,"raidz3"));
-
-        } else {
-            outer = vec![];
-            unimplemented!("we need some better definitions in here");
-        }
-
-
+    fn get_create_permutations(&self) -> CreatePermutation {
+        let mut permutations = CreatePermutation{
+            permutations : vec![]
+        };
+        permutations.mirror(&self);
+        permutations.raidz(&self);
+        permutations.stripe(&self);
+        permutations
     }
 
     fn is_devices_empty(&self) -> bool{
